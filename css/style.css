@@ -1129,6 +1129,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.5rem); }
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
+  .hero { padding-top: 110px; padding-bottom: 48px; }
   .hero .container { grid-template-columns: 1fr; text-align: center; }
   .hero-content { max-width: 100%; }
   .hero-actions { justify-content: center; }
@@ -1141,26 +1142,52 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.5rem); }
   .ai-layout { grid-template-columns: 1fr; }
   .contact-layout { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
+  .inline-chat-wrapper { height: 420px; }
 }
 
 @media (max-width: 768px) {
-  .section { padding: 72px 0; }
+  .section { padding: 64px 0; }
+  .hero { padding-top: 100px; padding-bottom: 40px; }
   .nav-links, .nav-cta { display: none; }
   .hamburger { display: flex; }
+  .logo-img { height: 28px; }
   .process-grid { grid-template-columns: 1fr 1fr; }
-  .form-grid { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
   .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
-  .chatbot-panel { width: calc(100vw - 48px); right: 0; }
-  .chatbot-widget { right: 20px; bottom: 20px; }
-  .wa-float { right: 20px; bottom: 92px; }
+  .chatbot-panel { width: calc(100vw - 32px); right: -4px; }
+  .chatbot-widget { right: 16px; bottom: 16px; }
+  .chatbot-toggle { width: 52px; height: 52px; }
+  .section-cta { padding: 0 16px; }
+  .section-cta .btn { width: 100%; justify-content: center; }
+  .contact-quick-links { margin-top: 24px; }
+  .quick-link-btns { flex-direction: column; align-items: stretch; }
+  .quick-link-btn { text-align: center; }
+  .contact-layout { gap: 32px; }
+  .contact-benefit-item { padding: 12px; }
+  .inline-chat-wrapper { height: 360px; }
+  .ai-layout { gap: 40px; }
+  .benefits-layout { gap: 40px; }
+  .hero-stats { gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .section-header { margin-bottom: 40px; }
 }
 
 @media (max-width: 480px) {
+  .hero { padding-top: 90px; padding-bottom: 32px; }
   .hero h1 { font-size: 2rem; }
+  .hero-desc { font-size: 1rem; }
   .hero-actions { flex-direction: column; align-items: stretch; }
-  .hero-stats { flex-direction: column; gap: 16px; align-items: center; }
+  .hero-actions .btn { text-align: center; justify-content: center; }
+  .hero-stats { flex-direction: column; gap: 12px; align-items: center; }
   .process-grid { grid-template-columns: 1fr; }
+  .hero-badge { font-size: 0.78rem; padding: 6px 14px; }
+  .service-card { padding: 28px 20px; }
+  .metrics-card { padding: 20px; }
+  .inline-chat-wrapper { height: 320px; }
+  .contact-info h3 { font-size: 1.2rem; }
+  .contact-benefit-item { flex-direction: column; gap: 10px; }
+  .cb-icon { width: 36px; height: 36px; font-size: 1rem; }
+  .chatbot-panel { width: calc(100vw - 24px); right: -8px; bottom: 68px; }
+  .footer-tagline { flex-direction: column; gap: 8px; }
 }
 
 /* ── Mobile Nav ── */
@@ -1518,12 +1545,4 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.5rem); }
              chatbotPulse 4s ease-in-out 3s infinite;
 }
 
-/* ── Responsive: inline chat ── */
-@media (max-width: 1024px) {
-  .inline-chat-wrapper { height: 420px; }
-}
-@media (max-width: 768px) {
-  .quick-link-btns { flex-direction: column; align-items: center; }
-  .inline-chat-wrapper { height: 380px; }
-}
 
