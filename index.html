@@ -424,7 +424,7 @@
       <!-- Chat inline -->
       <div class="inline-chat-wrapper" id="inlineChatWrapper">
         <div class="inline-chat-header">
-          <div class="inline-chat-avatar">🤖</div>
+          <div class="inline-chat-avatar"><img src="images/bot-avatar.png" alt="Asistente" onerror="this.parentElement.textContent='🤖'" /></div>
           <div class="inline-chat-info">
             <h4>Asistente PREXAcode</h4>
             <span class="inline-chat-status">● En línea ahora</span>
@@ -489,7 +489,7 @@
     <div class="chatbot-header">
       <!-- Ícono bot: reemplazar con imagen real en images/bot-icon.png -->
       <div class="chatbot-header-avatar bot-icon-wrapper">
-        <img src="images/bot-icon.png" alt="Asistente" class="bot-icon-img" onerror="this.style.display='none';this.parentElement.textContent='🤖'" />
+        <img src="images/bot-avatar.png" alt="Asistente" class="bot-icon-img" onerror="this.style.display='none';this.parentElement.textContent='🤖'" />
       </div>
       <div class="chatbot-header-info">
         <h4>Asistente PREXAcode</h4>
@@ -506,8 +506,8 @@
   <div class="chatbot-bubble hidden" id="chatBubble">💬 ¿Necesitás ayuda?</div>
 
   <button class="chatbot-toggle" id="chatToggle" aria-label="Abrir chat">
-    <!-- Ícono bot: imagen real en images/bot-icon.png -->
-    <img src="images/bot-icon.png" alt="Chat" class="toggle-bot-icon" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+    <!-- Ícono bot: robot en círculo degradado → images/bot-icon-btn.png -->
+    <img src="images/bot-icon-btn.png" alt="Chat" class="toggle-bot-icon" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
     <span class="toggle-icon-fallback">🤖</span>
   </button>
 </div>
