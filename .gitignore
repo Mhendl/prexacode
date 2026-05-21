@@ -1,0 +1,20 @@
+# Credenciales - NUNCA subir al repositorio
+config.php
+
+# Base de datos SQLite con leads
+data/
+
+# Logs
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# PHP sessions
+/tmp/
