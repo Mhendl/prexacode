@@ -20,7 +20,6 @@ $email    = trim($input['email'] ?? '');
 $telefono = trim($input['telefono'] ?? '');
 $servicio = trim($input['servicio'] ?? '');
 $mensaje  = trim($input['mensaje'] ?? '');
-$origen   = trim($input['origen'] ?? 'formulario');
 
 if (empty($nombre) || empty($email) || empty($mensaje)) {
     http_response_code(400);
@@ -33,24 +32,17 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
-$nombre   = htmlspecialchars($nombre,   ENT_QUOTES, 'UTF-8');
-$empresa  = htmlspecialchars($empresa,  ENT_QUOTES, 'UTF-8');
-$email    = htmlspecialchars($email,    ENT_QUOTES, 'UTF-8');
-$telefono = htmlspecialchars($telefono, ENT_QUOTES, 'UTF-8');
-$servicio = htmlspecialchars($servicio, ENT_QUOTES, 'UTF-8');
-$mensaje  = htmlspecialchars($mensaje,  ENT_QUOTES, 'UTF-8');
+$leadId  = date('YmdHis');
+$resumen = $empresa ? "Empresa: {$empresa}\n\n{$mensaje}" : $mensaje;
 
-$waMessage  = "🚀 *Nuevo lead desde PREXAcode*\n\n";
-$waMessage .= "📋 *Origen:* " . ucfirst($origen) . "\n";
-$waMessage .= "👤 *Nombre:* " . $nombre . "\n";
-if ($empresa)  $waMessage .= "🏢 *Empresa:* " . $empresa . "\n";
-$waMessage .= "📧 *Email:* " . $email . "\n";
-if ($telefono) $waMessage .= "📱 *Teléfono:* " . $telefono . "\n";
-if ($servicio) $waMessage .= "⚙️ *Servicio:* " . $servicio . "\n";
-$waMessage .= "\n💬 *Mensaje:*\n" . $mensaje;
-$waMessage .= "\n\n⏰ " . date('d/m/Y H:i') . " (Argentina)";
-
-$waSuccess = send_whatsapp($waMessage);
+$waSuccess = send_whatsapp(
+    $leadId,
+    $nombre,
+    $telefono ?: 'No proporcionado',
+    $email,
+    $servicio ?: 'No especificado',
+    $resumen
+);
 
 echo json_encode([
     'success' => true,
@@ -58,12 +50,28 @@ echo json_encode([
     'wa_sent' => $waSuccess
 ]);
 
-function send_whatsapp(string $msg): bool {
+function send_whatsapp(string $id, string $nombre, string $celular, string $correo, string $servicio, string $resumen): bool {
     $payload = [
         'messaging_product' => 'whatsapp',
-        'to'   => WA_TO,
-        'type' => 'text',
-        'text' => ['body' => $msg]
+        'to'                => WA_TO,
+        'type'              => 'template',
+        'template'          => [
+            'name'       => 'nuevo_lead_siqat',
+            'language'   => ['code' => 'es_AR'],
+            'components' => [
+                [
+                    'type'       => 'body',
+                    'parameters' => [
+                        ['type' => 'text', 'text' => $id],
+                        ['type' => 'text', 'text' => $nombre],
+                        ['type' => 'text', 'text' => $celular],
+                        ['type' => 'text', 'text' => $correo],
+                        ['type' => 'text', 'text' => $servicio],
+                        ['type' => 'text', 'text' => $resumen],
+                    ]
+                ]
+            ]
+        ]
     ];
 
     $ch = curl_init('https://graph.facebook.com/v21.0/' . WA_PHONE_NUMBER_ID . '/messages');
@@ -85,18 +93,18 @@ function send_whatsapp(string $msg): bool {
     curl_close($ch);
 
     if ($curlError || $httpCode !== 200) {
-        log_wa_error($curlError, $httpCode, $response, $msg);
+        log_wa_error($curlError, $httpCode, $response, $id);
         return false;
     }
     return true;
 }
 
-function log_wa_error(string $curlErr, int $code, string $response, string $msg): void {
+function log_wa_error(string $curlErr, int $code, string $response, string $ref): void {
     $logDir  = dirname(__DIR__) . '/data';
     $logFile = $logDir . '/wa_errors.log';
     if (!is_dir($logDir)) @mkdir($logDir, 0750, true);
     $entry  = '[' . date('Y-m-d H:i:s') . '] HTTP ' . $code . ' | cURL: ' . $curlErr . "\n";
     $entry .= 'Response: ' . substr($response, 0, 500) . "\n";
-    $entry .= 'Message snippet: ' . substr($msg, 0, 100) . "\n---\n";
+    $entry .= 'Lead ID: ' . $ref . "\n---\n";
     @file_put_contents($logFile, $entry, FILE_APPEND);
 }
