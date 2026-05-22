@@ -80,7 +80,7 @@ function sanitizeParam(string $text): string {
 $waServicio = sanitizeParam($servicio ?: 'Chat asistente IA - PREXAcode');
 $waTelefono = sanitizeParam($telefono ?: 'No proporcionado');
 $waResumen  = sanitizeParam($resumen  ?: 'Sin resumen');
-$waResumen  = mb_substr($waResumen, 0, 1000);
+$waResumen  = mb_substr($waResumen, 0, 500);
 
 $waPayload = [
     'messaging_product' => 'whatsapp',
