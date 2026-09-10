@@ -48,8 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setting_set($db, 'publicar_automatico',   isset($_POST['publicar_automatico']) ? '1' : '0');
         setting_set($db, 'generar_imagenes',      isset($_POST['generar_imagenes']) ? '1' : '0');
         setting_set($db, 'modelo_texto',          (string)($_POST['modelo_texto'] ?? 'gpt-4o-mini'));
-        setting_set($db, 'modelo_imagen',         (string)($_POST['modelo_imagen'] ?? 'dall-e-3'));
-        setting_set($db, 'tamano_imagen',         (string)($_POST['tamano_imagen'] ?? '1792x1024'));
+        setting_set($db, 'modelo_imagen',         (string)($_POST['modelo_imagen'] ?? 'gpt-image-1'));
+        setting_set($db, 'tamano_imagen',         (string)($_POST['tamano_imagen'] ?? '1536x1024'));
+        setting_set($db, 'calidad_imagen',        (string)($_POST['calidad_imagen'] ?? 'medium'));
         setting_set($db, 'max_posts_semana',      (string)max(1, min(7, (int)($_POST['max_posts_semana'] ?? 3))));
         setting_set($db, 'ventana_metricas_dias', (string)max(7, min(180, (int)($_POST['ventana_metricas_dias'] ?? 30))));
         setting_set($db, 'min_keywords_en_cola',  (string)max(3, min(50, (int)($_POST['min_keywords_en_cola'] ?? 8))));
@@ -63,8 +64,8 @@ $keyDelPanel = setting_get($db, 'openai_api_key');
 $origenKey   = $keyDelPanel ? 'guardada en el panel (cifrada)' : 'tomada de config.php';
 
 $modeloTexto = setting_get($db, 'modelo_texto', 'gpt-4o-mini');
-$modeloImg   = setting_get($db, 'modelo_imagen', 'dall-e-3');
-$tamanoImg   = setting_get($db, 'tamano_imagen', '1792x1024');
+$modeloImg   = setting_get($db, 'modelo_imagen', 'gpt-image-1');
+$tamanoImg   = setting_get($db, 'tamano_imagen', '1536x1024');
 
 admin_head('Configuración');
 admin_sidebar('settings');
@@ -117,14 +118,25 @@ admin_sidebar('settings');
         <div>
           <label>Modelo de imagen</label>
           <select name="modelo_imagen">
-            <option value="dall-e-3" <?= $modeloImg === 'dall-e-3' ? 'selected' : '' ?>>dall-e-3</option>
+            <option value="gpt-image-1"      <?= $modeloImg === 'gpt-image-1' ? 'selected' : '' ?>>gpt-image-1</option>
+            <option value="gpt-image-1-mini" <?= $modeloImg === 'gpt-image-1-mini' ? 'selected' : '' ?>>gpt-image-1-mini (más barato)</option>
           </select>
+          <p style="color:#64748b;font-size:.74rem;margin-top:5px">dall-e-3 ya no está disponible en esta cuenta.</p>
         </div>
         <div>
           <label>Tamaño de imagen</label>
           <select name="tamano_imagen">
-            <option value="1792x1024" <?= $tamanoImg === '1792x1024' ? 'selected' : '' ?>>1792x1024 (panorámica, USD 0.08)</option>
-            <option value="1024x1024" <?= $tamanoImg === '1024x1024' ? 'selected' : '' ?>>1024x1024 (cuadrada, USD 0.04)</option>
+            <option value="1536x1024" <?= $tamanoImg === '1536x1024' ? 'selected' : '' ?>>1536x1024 (panorámica)</option>
+            <option value="1024x1024" <?= $tamanoImg === '1024x1024' ? 'selected' : '' ?>>1024x1024 (cuadrada)</option>
+          </select>
+        </div>
+        <div>
+          <label>Calidad de imagen</label>
+          <select name="calidad_imagen">
+            <?php $calImg = setting_get($db, 'calidad_imagen', 'medium'); ?>
+            <option value="low"    <?= $calImg === 'low' ? 'selected' : '' ?>>low (~USD 0.016)</option>
+            <option value="medium" <?= $calImg === 'medium' ? 'selected' : '' ?>>medium (~USD 0.063)</option>
+            <option value="high"   <?= $calImg === 'high' ? 'selected' : '' ?>>high (~USD 0.25)</option>
           </select>
         </div>
         <div>
@@ -155,7 +167,7 @@ admin_sidebar('settings');
         </label>
         <label style="display:flex;gap:10px;align-items:center;cursor:pointer;margin:0">
           <input type="checkbox" name="generar_imagenes" style="width:auto" <?= setting_bool($db, 'generar_imagenes', true) ? 'checked' : '' ?>>
-          <span>Generar imagen destacada con DALL·E 3</span>
+          <span>Generar imagen destacada con IA</span>
         </label>
       </div>
     </div>

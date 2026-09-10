@@ -70,7 +70,7 @@ blog_head([
       <figure class="bl-hero">
         <img src="/<?= htmlspecialchars(ltrim((string)$post['imagen_path'], '/'), ENT_QUOTES, 'UTF-8') ?>"
              alt="<?= htmlspecialchars((string)$post['imagen_alt'], ENT_QUOTES, 'UTF-8') ?>"
-             width="1792" height="1024" fetchpriority="high">
+             width="1536" height="1024" fetchpriority="high">
       </figure>
     <?php endif; ?>
 

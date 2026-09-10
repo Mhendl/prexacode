@@ -11,10 +11,29 @@ const OPENAI_PRECIOS = [
     'gpt-4o'      => ['entrada' => 2.50, 'salida' => 10.00],
 ];
 
-// Precio por imagen segun modelo y tamano
+/**
+ * Precio aproximado por imagen (USD), segun modelo, tamano y calidad.
+ *
+ * OJO: dall-e-3 ya no esta disponible en esta cuenta ("The model 'dall-e-3'
+ * does not exist"), quedo reemplazado por la familia gpt-image-*. Esa familia
+ * usa tamanos distintos (1536x1024, no 1792x1024) y calidad low/medium/high
+ * en vez de standard/hd.
+ */
 const OPENAI_PRECIO_IMAGEN = [
-    'dall-e-3' => ['1024x1024' => 0.040, '1792x1024' => 0.080, '1024x1792' => 0.080],
+    'gpt-image-1' => [
+        '1024x1024' => ['low' => 0.011, 'medium' => 0.042, 'high' => 0.167],
+        '1536x1024' => ['low' => 0.016, 'medium' => 0.063, 'high' => 0.250],
+        '1024x1536' => ['low' => 0.016, 'medium' => 0.063, 'high' => 0.250],
+    ],
+    'gpt-image-1-mini' => [
+        '1024x1024' => ['low' => 0.005, 'medium' => 0.015, 'high' => 0.060],
+        '1536x1024' => ['low' => 0.008, 'medium' => 0.022, 'high' => 0.090],
+    ],
 ];
+
+function precio_imagen(string $modelo, string $tamano, string $calidad): float {
+    return OPENAI_PRECIO_IMAGEN[$modelo][$tamano][$calidad] ?? 0.0;
+}
 
 function openai_request(string $key, string $url, array $payload, int $timeout = 120): array {
     if ($key === '') {
@@ -97,35 +116,67 @@ function openai_costo(string $modelo, int $entrada, int $salida): float {
 
 /**
  * Genera una imagen y devuelve los bytes crudos.
- * Se pide en b64 para evitar una segunda descarga desde el CDN de OpenAI,
- * cuyas URLs expiran.
+ *
+ * No se manda response_format: la API actual lo rechaza con
+ * "Unknown parameter". Segun el modelo, la respuesta trae la imagen en
+ * base64 o una URL temporal, asi que se contemplan las dos formas.
  */
-function openai_imagen(string $key, string $prompt, string $modelo = 'dall-e-3', string $tamano = '1792x1024'): array {
-    $r = openai_request($key, 'https://api.openai.com/v1/images/generations', [
-        'model'           => $modelo,
-        'prompt'          => $prompt,
-        'n'               => 1,
-        'size'            => $tamano,
-        'quality'         => 'standard',
-        'response_format' => 'b64_json',
-    ], 180);
+function openai_imagen(string $key, string $prompt, string $modelo = 'gpt-image-1', string $tamano = '1536x1024', string $calidad = 'medium'): array {
+    $payload = [
+        'model'   => $modelo,
+        'prompt'  => $prompt,
+        'n'       => 1,
+        'size'    => $tamano,
+        'quality' => $calidad,
+    ];
 
+    // La familia gpt-image entrega WebP directamente. Sin esto llega un PNG de
+    // ~1.8MB, que en una cabecera de blog arruina la velocidad de carga (y con
+    // ella el SEO). El servidor no tiene GD, asi que convertir despues no es
+    // opcion: hay que pedirlo ya comprimido.
+    if (str_starts_with($modelo, 'gpt-image')) {
+        $payload['output_format']      = 'webp';
+        $payload['output_compression'] = 80;
+    }
+
+    $r = openai_request($key, 'https://api.openai.com/v1/images/generations', $payload, 180);
     if (!$r['ok']) return $r;
 
-    $b64 = $r['data']['data'][0]['b64_json'] ?? null;
-    if (!$b64) return ['ok' => false, 'error' => 'OpenAI no devolvio imagen'];
+    $item = $r['data']['data'][0] ?? [];
+    $bytes = null;
 
-    $bytes = base64_decode($b64, true);
-    if ($bytes === false || strlen($bytes) < 1000) {
-        return ['ok' => false, 'error' => 'La imagen recibida es invalida'];
+    if (!empty($item['b64_json'])) {
+        $bytes = base64_decode($item['b64_json'], true);
+    } elseif (!empty($item['url'])) {
+        // Las URLs de OpenAI caducan, hay que bajar la imagen ahora
+        $bytes = descargar($item['url']);
+    }
+
+    if ($bytes === null || $bytes === false || strlen($bytes) < 1000) {
+        return ['ok' => false, 'error' => 'OpenAI no devolvio una imagen utilizable'];
     }
 
     return [
         'ok'        => true,
         'bytes'     => $bytes,
-        'costo_usd' => OPENAI_PRECIO_IMAGEN[$modelo][$tamano] ?? 0.0,
-        'revisado'  => $r['data']['data'][0]['revised_prompt'] ?? null,
+        'costo_usd' => precio_imagen($modelo, $tamano, $calidad),
+        'revisado'  => $item['revised_prompt'] ?? null,
     ];
+}
+
+function descargar(string $url): ?string {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 120,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $datos = curl_exec($ch);
+    $code  = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return ($datos === false || $code !== 200) ? null : $datos;
 }
 
 /**

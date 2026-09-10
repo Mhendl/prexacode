@@ -48,12 +48,17 @@ conectando explicitamente el problema tratado con como lo resuelve el desarrollo
 medida de PREXAcode. Si el tema es tangencial, ese cierre es todavia mas importante.
 El cierre debe ser util, no un aviso publicitario.
 
-FORMATO DEL CUERPO:
+FORMATO DEL CUERPO (se valida automaticamente, si no cumple se descarta):
 - HTML simple: <p>, <h2>, <h3>, <ul>/<li>, <strong>. Nada de <h1> (lo pone la plantilla).
-- Entre 700 y 1100 palabras.
-- Arranca directo con el problema concreto, sin preambulo.
-- 4 a 6 <h2>. Usa <h3> solo si un <h2> lo necesita.
-- Un <h2> final de cierre que conecte con desarrollo a medida.
+- EXTENSION MINIMA OBLIGATORIA: 800 palabras. Un articulo mas corto se rechaza
+  entero y no se publica. Contá lo que escribis: es el requisito que mas falla.
+- Estructura exigida para llegar a esa extension:
+  * Apertura de 2 parrafos: el problema concreto, sin preambulo ni definiciones.
+  * 5 secciones <h2> como minimo.
+  * Cada <h2> lleva 3 parrafos de 4 a 6 lineas, o 2 parrafos mas una lista.
+  * Un <h2> final de cierre que conecte con el desarrollo a medida.
+- Desarrolla cada idea con un ejemplo operativo concreto. No enumeres sin explicar:
+  es preferible una seccion con sustancia que tres superficiales.
 TXT;
 }
 
@@ -106,19 +111,22 @@ function generar_articulo(PDO $db, ?array $tema = null): array {
     $problemas = [];
     $art      = null;
 
-    // Hasta 2 intentos: si el primero no pasa el filtro, se le devuelven los
-    // problemas concretos al modelo en vez de reintentar a ciegas.
-    for ($intento = 1; $intento <= 2; $intento++) {
+    // Hasta 3 intentos: si uno no pasa el filtro se le devuelven los problemas
+    // concretos al modelo en vez de reintentar a ciegas. Con gpt-4o-mini cada
+    // intento cuesta centavos, mucho menos que perder el turno de publicacion.
+    for ($intento = 1; $intento <= 3; $intento++) {
         $mensajes = [
             ['role' => 'system', 'content' => prompt_sistema($tema['cluster'])],
             ['role' => 'user',   'content' => prompt_articulo($tema['keyword'], $tema['cluster'])],
         ];
 
-        if ($intento === 2 && $problemas) {
+        if ($intento > 1 && $problemas) {
             $mensajes[] = ['role' => 'user', 'content' =>
-                "El intento anterior fue rechazado por el control de calidad:\n- "
+                "El intento anterior fue RECHAZADO por el control de calidad:\n- "
                 . implode("\n- ", $problemas)
-                . "\n\nCorregí exactamente eso y devolvé el JSON de nuevo."];
+                . "\n\nCorregí exactamente eso y devolvé el JSON de nuevo. "
+                . "Si el problema era la extension, no resumas: agregá secciones y "
+                . "desarrollá cada una con ejemplos operativos hasta superar las 800 palabras."];
         }
 
         $r = openai_chat($key, $mensajes, $modelo, true, 5000);
@@ -235,6 +243,14 @@ function registrar_fallo(PDO $db, array $tema, string $motivo, float $costo): vo
        ]);
 }
 
+/** Detecta el formato por los magic bytes, sin depender de GD ni de fileinfo. */
+function extension_de_imagen(string $bytes): string {
+    if (str_starts_with($bytes, "RIFF") && substr($bytes, 8, 4) === 'WEBP') return 'webp';
+    if (str_starts_with($bytes, "\x89PNG"))                                 return 'png';
+    if (str_starts_with($bytes, "\xFF\xD8\xFF"))                            return 'jpg';
+    return 'png';
+}
+
 function slug_unico(PDO $db, string $titulo): string {
     $base  = slugify($titulo);
     $slug  = $base;
@@ -251,16 +267,19 @@ function slug_unico(PDO $db, string $titulo): string {
 
 /** Genera, descarga y guarda la imagen destacada. */
 function generar_imagen_destacada(PDO $db, string $key, string $concepto, string $slug): array {
-    $modelo = setting_get($db, 'modelo_imagen', 'dall-e-3') ?: 'dall-e-3';
-    $tamano = setting_get($db, 'tamano_imagen', '1792x1024') ?: '1792x1024';
+    $modelo  = setting_get($db, 'modelo_imagen', 'gpt-image-1') ?: 'gpt-image-1';
+    $tamano  = setting_get($db, 'tamano_imagen', '1536x1024') ?: '1536x1024';
+    $calidad = setting_get($db, 'calidad_imagen', 'medium') ?: 'medium';
 
-    $r = openai_imagen($key, prompt_imagen($concepto), $modelo, $tamano);
+    $r = openai_imagen($key, prompt_imagen($concepto), $modelo, $tamano, $calidad);
     if (!$r['ok']) return $r;
 
     $dir = dirname(__DIR__) . '/images/blog';
     if (!is_dir($dir)) mkdir($dir, 0755, true);
 
-    $nombre  = $slug . '.png';
+    // La extension sale de los bytes reales, no de una suposicion: la API
+    // devuelve WebP cuando se lo pedimos, pero PNG si el modelo no lo soporta.
+    $nombre  = $slug . '.' . extension_de_imagen($r['bytes']);
     $destino = $dir . '/' . $nombre;
 
     if (file_put_contents($destino, $r['bytes']) === false) {
@@ -268,21 +287,10 @@ function generar_imagen_destacada(PDO $db, string $key, string $concepto, string
     }
     @chmod($destino, 0644);
 
-    // GD no esta instalado en el servidor. Si algun dia se instala php8.3-gd,
-    // esto convierte a WebP y baja el peso de ~2MB a ~150KB, que es la mayor
-    // ganancia de velocidad disponible para estas paginas.
-    if (function_exists('imagecreatefrompng') && function_exists('imagewebp')) {
-        $im = @imagecreatefrompng($destino);
-        if ($im !== false) {
-            $webp = $dir . '/' . $slug . '.webp';
-            if (@imagewebp($im, $webp, 82)) {
-                @chmod($webp, 0644);
-                @unlink($destino);
-                $nombre = $slug . '.webp';
-            }
-            imagedestroy($im);
-        }
-    }
-
-    return ['ok' => true, 'path' => 'images/blog/' . $nombre, 'costo_usd' => $r['costo_usd']];
+    return [
+        'ok'        => true,
+        'path'      => 'images/blog/' . $nombre,
+        'costo_usd' => $r['costo_usd'],
+        'bytes'     => strlen($r['bytes']),
+    ];
 }
