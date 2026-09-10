@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Nada de esto debe indexarse
+Disallow: /admin/
+Disallow: /api/
+Disallow: /data/
+Disallow: /tools/
+Disallow: /bin/
+Disallow: /lib/
+
+Sitemap: https://prexacode.com/sitemap.xml

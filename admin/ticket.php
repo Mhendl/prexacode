@@ -88,6 +88,10 @@ $conv = json_decode($t['conversacion'] ?? '[]', true) ?: [];
   <div class="sidebar-logo">PREXA<span>code</span></div>
   <a href="/admin/dashboard.php">🎫 Tickets</a>
   <a href="/admin/conversations.php">💬 Conversaciones</a>
+  <a href="/admin/blog.php">📝 Artículos</a>
+  <a href="/admin/keywords.php">🔑 Keywords</a>
+  <a href="/admin/analytics.php">📊 Analítica</a>
+  <a href="/admin/settings.php">⚙️ Configuración</a>
   <a href="/">🌐 Ver sitio</a>
   <div class="sidebar-bottom">
     <a href="/admin/?logout=1">🚪 Cerrar sesión</a>

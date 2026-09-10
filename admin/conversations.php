@@ -160,6 +160,10 @@ function msg_preview(string $json): string {
   <div class="sidebar-logo">PREXA<span>code</span></div>
   <a href="/admin/dashboard.php">🎫 Tickets</a>
   <a href="/admin/conversations.php" class="active">💬 Conversaciones</a>
+  <a href="/admin/blog.php">📝 Artículos</a>
+  <a href="/admin/keywords.php">🔑 Keywords</a>
+  <a href="/admin/analytics.php">📊 Analítica</a>
+  <a href="/admin/settings.php">⚙️ Configuración</a>
   <a href="/">🌐 Ver sitio</a>
   <div class="sidebar-bottom">
     <a href="/admin/?logout=1">🚪 Cerrar sesión</a>
@@ -175,11 +179,12 @@ function msg_preview(string $json): string {
   <!-- Stats -->
   <div class="stats">
     <div class="stat-card">
-      <div class="stat-num"><?= number_format($stats['total']) ?></div>
+      <div class="stat-num"><?= number_format((int)$stats['total']) ?></div>
       <div class="stat-label">Total conversaciones</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num lead"><?= number_format($stats['leads']) ?></div>
+      <?php /* SUM() devuelve NULL con la tabla vacía y number_format(null) está deprecado */ ?>
+      <div class="stat-num lead"><?= number_format((int)$stats['leads']) ?></div>
       <div class="stat-label">Terminaron en lead</div>
     </div>
     <div class="stat-card">
@@ -187,7 +192,7 @@ function msg_preview(string $json): string {
       <div class="stat-label">Mensajes promedio</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num"><?= number_format($stats['hoy']) ?></div>
+      <div class="stat-num"><?= number_format((int)$stats['hoy']) ?></div>
       <div class="stat-label">Hoy</div>
     </div>
   </div>

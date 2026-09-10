@@ -20,3 +20,7 @@ Thumbs.db
 
 # PHP sessions
 /tmp/
+
+# Generado automaticamente por el blog
+/sitemap.xml
+/images/blog/

@@ -334,3 +334,38 @@ document.querySelectorAll('.service-card, .process-step, .benefit-item').forEach
   el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
   observer.observe(el);
 });
+
+// ══════════════════════════════════════════════════════
+// ANALÍTICA PROPIA — se registra cada visita del sitio
+// (el blog usa el mismo endpoint desde su propia plantilla)
+// ══════════════════════════════════════════════════════
+(function () {
+  const inicio = Date.now();
+  let hitId = null;
+
+  fetch('/api/track.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: location.pathname, referrer: document.referrer || '' })
+  })
+    .then(r => r.json())
+    .then(d => { if (d && d.hit_id) hitId = d.hit_id; })
+    .catch(() => {});
+
+  function reportarPermanencia() {
+    if (!hitId) return;
+    const seg = Math.round((Date.now() - inicio) / 1000);
+    if (seg < 2) return;
+    const datos = JSON.stringify({ hit_id: hitId, segundos: seg });
+    // sendBeacon sobrevive al cierre de la pestaña; fetch no siempre
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/track.php', new Blob([datos], { type: 'application/json' }));
+    }
+    hitId = null;
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') reportarPermanencia();
+  });
+  window.addEventListener('pagehide', reportarPermanencia);
+})();

@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../lib/schema.php';
 
 // ── Cabeceras JSON + CORS restringido al dominio propio ──
 function api_headers(string $methods = 'POST, OPTIONS'): void {
@@ -51,42 +52,6 @@ function db_connect(): PDO {
     return $db;
 }
 
-function db_migrate(PDO $db): void {
-    $db->exec("CREATE TABLE IF NOT EXISTS tickets (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at   TEXT    DEFAULT (datetime('now', 'localtime')),
-        nombre       TEXT    NOT NULL,
-        email        TEXT,
-        telefono     TEXT,
-        empresa      TEXT,
-        servicio     TEXT,
-        resumen      TEXT,
-        conversacion TEXT,
-        estado       TEXT    DEFAULT 'nuevo',
-        notas        TEXT,
-        ip           TEXT
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS conversations (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id   TEXT    NOT NULL UNIQUE,
-        started_at   TEXT    DEFAULT (datetime('now', 'localtime')),
-        last_active  TEXT    DEFAULT (datetime('now', 'localtime')),
-        messages     TEXT,
-        ip           TEXT,
-        user_agent   TEXT,
-        is_lead      INTEGER DEFAULT 0,
-        msg_count    INTEGER DEFAULT 0
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS rate_limits (
-        id     INTEGER PRIMARY KEY AUTOINCREMENT,
-        bucket TEXT NOT NULL,
-        ip     TEXT NOT NULL,
-        ts     TEXT NOT NULL
-    )");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_rate_lookup ON rate_limits (bucket, ip, ts)");
-}
 
 /**
  * Límite por IP: devuelve false si ya se superó el cupo en la ventana.

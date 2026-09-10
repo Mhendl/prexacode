@@ -16,5 +16,12 @@ define('COMPANY_DOMAIN', 'https://prexacode.com');
 define('ADMIN_USER', 'admin');
 define('ADMIN_PASS_HASH', '');        // Generar con: password_hash('tuContraseña', PASSWORD_BCRYPT)
 
+// Clave maestra de la aplicación (mínimo 32 caracteres).
+// Cifra la API key guardada desde el panel y sala los hashes de la analítica.
+// Generar con: php -r "echo bin2hex(random_bytes(32));"
+// OJO: si la cambiás, la API key guardada en la base deja de poder descifrarse
+// y hay que volver a cargarla desde el panel.
+define('APP_SECRET', '');
+
 // SQLite - ruta al archivo de base de datos
 define('DB_PATH', __DIR__ . '/data/tickets.db');
