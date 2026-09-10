@@ -1,8 +1,13 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start(['cookie_httponly' => true, 'cookie_samesite' => 'Strict']);
+admin_session_start();
+
+// Cerrar sesión: acá apuntan los enlaces del panel
+if (isset($_GET['logout'])) {
+    auth_logout();
+    header('Location: /admin/');
+    exit;
 }
 
 $error = '';
@@ -10,12 +15,22 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['usuario'] ?? '');
     $pass = $_POST['password'] ?? '';
-    if (auth_login($user, $pass)) {
-        $_SESSION['admin_logged_in'] = true;
-        header('Location: /admin/dashboard.php');
-        exit;
+
+    if (!csrf_ok($_POST['csrf'] ?? null)) {
+        $error = 'La sesión expiró. Volvé a intentarlo.';
+    } else {
+        try { $db = get_db(); } catch (Exception $e) { $db = null; }
+
+        // Freno de fuerza bruta: 8 intentos cada 15 minutos por IP
+        if ($db && !rate_limit_ok($db, 'admin_login', 8, 900)) {
+            $error = 'Demasiados intentos. Esperá unos minutos antes de reintentar.';
+        } elseif (auth_login($user, $pass)) {
+            header('Location: /admin/dashboard.php');
+            exit;
+        } else {
+            $error = 'Usuario o contraseña incorrectos.';
+        }
     }
-    $error = 'Usuario o contraseña incorrectos.';
 }
 
 if (!empty($_SESSION['admin_logged_in'])) {
@@ -52,6 +67,7 @@ if (!empty($_SESSION['admin_logged_in'])) {
   <h2>Panel de tickets</h2>
   <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
   <form method="POST">
+    <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
     <label>Usuario</label>
     <input type="text" name="usuario" required autocomplete="username" placeholder="admin">
     <label>Contraseña</label>

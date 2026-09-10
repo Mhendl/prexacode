@@ -4,13 +4,6 @@ auth_check();
 
 $db = get_db();
 
-// Logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: /admin/');
-    exit;
-}
-
 // Filtros
 $busqueda   = trim($_GET['q']    ?? '');
 $filtroFecha = trim($_GET['fecha'] ?? '');   // hoy / semana / mes / custom
@@ -60,7 +53,7 @@ $total      = (int)$totalStmt->fetchColumn();
 $totalPags  = max(1, ceil($total / $por_pagina));
 $offset     = ($pagina - 1) * $por_pagina;
 
-$stmt = $db->prepare("SELECT id, session_id, started_at, last_active, msg_count, is_lead, ip
+$stmt = $db->prepare("SELECT id, session_id, started_at, last_active, msg_count, is_lead, ip, messages
                       FROM conversations {$whereSQL}
                       ORDER BY last_active DESC
                       LIMIT {$por_pagina} OFFSET {$offset}");
@@ -243,7 +236,7 @@ function msg_preview(string $json): string {
     <?php if (empty($rows)): ?>
     <div class="empty">
       <div style="font-size:3rem;margin-bottom:16px">💬</div>
-      <p>No hay conversaciones<?= $busqueda ? " con «{$busqueda}»" : '' ?></p>
+      <p>No hay conversaciones<?= $busqueda ? ' con «' . htmlspecialchars($busqueda) . '»' : '' ?></p>
     </div>
     <?php else: ?>
     <table>
@@ -261,7 +254,6 @@ function msg_preview(string $json): string {
       </thead>
       <tbody>
       <?php foreach ($rows as $r):
-        $msgs    = json_decode($r['messages'] ?? '[]', true) ?? [];
         $preview = msg_preview($r['messages'] ?? '[]');
       ?>
         <tr>
@@ -281,7 +273,7 @@ function msg_preview(string $json): string {
           </td>
           <td style="font-size:.75rem;color:#475569"><?= htmlspecialchars($r['ip'] ?? '—') ?></td>
           <td>
-            <button class="btn-f" onclick="openModal(<?= htmlspecialchars(json_encode($r), ENT_QUOTES) ?>)">Ver →</button>
+            <button class="btn-f" onclick="openModal(<?= htmlspecialchars(json_encode($r, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES) ?>)">Ver →</button>
           </td>
         </tr>
       <?php endforeach; ?>

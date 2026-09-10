@@ -1,8 +1,10 @@
 # Credenciales - NUNCA subir al repositorio
 config.php
 
-# Base de datos SQLite con leads
-data/
+# Base de datos SQLite con leads (se versiona sólo la protección de la carpeta)
+data/*
+!data/.gitkeep
+!data/.htaccess
 
 # Logs
 *.log

@@ -183,7 +183,8 @@ function createChatEngine({ messagesEl, inputEl, sendBtn, sessionId, onFirstMess
           setTimeout(() => showTicketForm(), 600);
         }
       } else {
-        addMsg('Lo siento, hubo un error. Por favor intentá nuevamente.', 'bot');
+        // El backend explica el motivo (por ejemplo, límite de mensajes alcanzado)
+        addMsg(data.error || 'Lo siento, hubo un error. Por favor intentá nuevamente.', 'bot');
       }
     } catch {
       typing.remove();

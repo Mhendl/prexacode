@@ -2,22 +2,39 @@
 
 # Proteger archivos de configuración
 <Files "config.php">
-    Order allow,deny
-    Deny from all
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </Files>
 
-# Proteger carpeta api de acceso directo (solo permite POST/GET desde JS)
-<FilesMatch "\.(php)$">
-    Header set X-Content-Type-Options "nosniff"
+# Proteger base de datos, logs e includes internos (nunca servir por HTTP)
+<FilesMatch "(\.(db|db-wal|db-shm|sqlite|sqlite3|log)|^_.*\.php)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
 # Prevenir listado de directorios
 Options -Indexes
 
-# Headers de seguridad
-Header always set X-Frame-Options "SAMEORIGIN"
-Header always set X-XSS-Protection "1; mode=block"
-Header always set Referrer-Policy "strict-origin-when-cross-origin"
+# Headers de seguridad (mod_headers puede no estar disponible en shared hosting)
+<IfModule mod_headers.c>
+    <FilesMatch "\.(php)$">
+        Header set X-Content-Type-Options "nosniff"
+    </FilesMatch>
+
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
 
 # Habilitar compresión Gzip
 <IfModule mod_deflate.c>
@@ -33,9 +50,4 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
     ExpiresByType application/javascript "access plus 1 week"
 </IfModule>
 
-# CORS para API
-<FilesMatch "^(chat|contact)\.php$">
-    Header set Access-Control-Allow-Origin "https://prexacode.com"
-    Header set Access-Control-Allow-Methods "POST, OPTIONS"
-    Header set Access-Control-Allow-Headers "Content-Type"
-</FilesMatch>
+# CORS: los endpoints resuelven el origen permitido en PHP (api/_bootstrap.php)

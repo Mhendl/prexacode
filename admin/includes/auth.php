@@ -1,14 +1,22 @@
 <?php
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../api/_bootstrap.php';
 
-function auth_check() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start([
-            'cookie_httponly' => true,
-            'cookie_secure'   => isset($_SERVER['HTTPS']),
-            'cookie_samesite' => 'Strict'
-        ]);
-    }
+// ── Sesión ──
+function admin_session_start(): void {
+    if (session_status() !== PHP_SESSION_NONE) return;
+
+    $https = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
+          || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+
+    session_start([
+        'cookie_httponly' => true,
+        'cookie_secure'   => $https,
+        'cookie_samesite' => 'Strict',
+    ]);
+}
+
+function auth_check(): void {
+    admin_session_start();
     if (empty($_SESSION['admin_logged_in'])) {
         header('Location: /admin/');
         exit;
@@ -16,40 +24,45 @@ function auth_check() {
 }
 
 function auth_login(string $user, string $pass): bool {
-    return $user === ADMIN_USER && password_verify($pass, ADMIN_PASS_HASH);
+    // Se evalúan ambos factores siempre, para no filtrar cuál falló por tiempo
+    $userOk = hash_equals(ADMIN_USER, $user);
+    $passOk = password_verify($pass, ADMIN_PASS_HASH);
+
+    if (!($userOk && $passOk)) return false;
+
+    admin_session_start();
+    session_regenerate_id(true);            // corta cualquier fijación de sesión
+    $_SESSION['admin_logged_in'] = true;
+    return true;
 }
 
+function auth_logout(): void {
+    admin_session_start();
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+    }
+    session_destroy();
+}
+
+// ── CSRF ──
+function csrf_token(): string {
+    admin_session_start();
+    if (empty($_SESSION['csrf'])) {
+        $_SESSION['csrf'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf'];
+}
+
+function csrf_ok($token): bool {
+    admin_session_start();
+    return !empty($_SESSION['csrf']) && is_string($token) && hash_equals($_SESSION['csrf'], $token);
+}
+
+// ── Datos ──
 function get_db(): PDO {
-    $dataDir = dirname(DB_PATH);
-    if (!is_dir($dataDir)) mkdir($dataDir, 0750, true);
-    $db = new PDO('sqlite:' . DB_PATH);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $db->exec("CREATE TABLE IF NOT EXISTS tickets (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at   TEXT    DEFAULT (datetime('now', 'localtime')),
-        nombre       TEXT    NOT NULL,
-        email        TEXT,
-        telefono     TEXT,
-        empresa      TEXT,
-        servicio     TEXT,
-        resumen      TEXT,
-        conversacion TEXT,
-        estado       TEXT    DEFAULT 'nuevo',
-        notas        TEXT,
-        ip           TEXT
-    )");
-    $db->exec("CREATE TABLE IF NOT EXISTS conversations (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id   TEXT    NOT NULL UNIQUE,
-        started_at   TEXT    DEFAULT (datetime('now', 'localtime')),
-        last_active  TEXT    DEFAULT (datetime('now', 'localtime')),
-        messages     TEXT,
-        ip           TEXT,
-        user_agent   TEXT,
-        is_lead      INTEGER DEFAULT 0,
-        msg_count    INTEGER DEFAULT 0
-    )");
-    return $db;
+    return db_connect();
 }
 
 function estado_badge(string $estado): string {

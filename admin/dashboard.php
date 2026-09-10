@@ -43,13 +43,6 @@ foreach (['nuevo','contactado','en_progreso','cerrado'] as $e) {
     $conteos[$e] = (int)$r;
 }
 $conteos['todos'] = array_sum($conteos);
-
-// Logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: /admin/');
-    exit;
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -169,7 +162,7 @@ if (isset($_GET['logout'])) {
   <!-- Table -->
   <div class="table-wrap">
     <?php if (empty($tickets)): ?>
-    <div class="empty"><div class="empty-icon">🎫</div><p>No hay tickets<?= $busqueda ? " con «{$busqueda}»" : '' ?></p></div>
+    <div class="empty"><div class="empty-icon">🎫</div><p>No hay tickets<?= $busqueda ? ' con «' . htmlspecialchars($busqueda) . '»' : '' ?></p></div>
     <?php else: ?>
     <table>
       <thead>

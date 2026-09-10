@@ -1,29 +1,29 @@
 <?php
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+require_once __DIR__ . '/_bootstrap.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Método no permitido']);
-    exit;
-}
+api_headers();
 
-require_once '../config.php';
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') api_error(405, 'Método no permitido');
 
 $input = json_decode(file_get_contents('php://input'), true);
 
-if (!isset($input['messages']) || !is_array($input['messages'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Datos inválidos']);
-    exit;
-}
+if (!isset($input['messages']) || !is_array($input['messages'])) api_error(400, 'Datos inválidos');
 
 $sessionId = preg_replace('/[^a-zA-Z0-9\-_]/', '', $input['session_id'] ?? '');
-$ip        = $_SERVER['REMOTE_ADDR'] ?? '';
-$userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$ip        = client_ip();
+$userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255);
+
+// Este endpoint gasta cuota de OpenAI en cada llamada: sin tope por IP
+// cualquiera puede vaciarla desde afuera del sitio.
+$db = null;
+try {
+    $db = db_connect();
+} catch (Exception $e) {
+    // Si la base falla seguimos sirviendo el chat, sin persistencia ni tope
+}
+if ($db && (!rate_limit_ok($db, 'chat_10m', 20, 600) || !rate_limit_ok($db, 'chat_1h', 120, 3600))) {
+    api_error(429, 'Estás enviando mensajes muy rápido. Esperá un momento e intentá de nuevo.');
+}
 
 $systemPrompt = [
     'role' => 'system',
@@ -58,7 +58,20 @@ IMPORTANTE: [[FORM]] debe ir al FINAL del mensaje, en una línea aparte, SOLO CU
 Siempre respondé en español, tono profesional y amigable. Sé conciso. No inventes precios ni plazos. Si preguntan precios, decí que depende del proyecto y ofrecé una consulta gratuita.'
 ];
 
-$messages = array_merge([$systemPrompt], array_slice($input['messages'], -10));
+// El historial lo manda el cliente: normalizamos roles (nadie inyecta 'system')
+// y recortamos cada mensaje antes de pagarle tokens a OpenAI.
+$historial = [];
+foreach (array_slice($input['messages'], -10) as $m) {
+    $contenido = trim((string)($m['content'] ?? ''));
+    if ($contenido === '') continue;
+    $historial[] = [
+        'role'    => (($m['role'] ?? '') === 'assistant') ? 'assistant' : 'user',
+        'content' => mb_substr($contenido, 0, 1000),
+    ];
+}
+if (empty($historial)) api_error(400, 'Datos inválidos');
+
+$messages = array_merge([$systemPrompt], $historial);
 
 $payload = [
     'model'       => 'gpt-4o-mini',
@@ -86,55 +99,36 @@ $curlError = curl_error($ch);
 curl_close($ch);
 
 if ($curlError) {
-    save_conversation($sessionId, $input['messages'], null, $ip, $userAgent);
-    http_response_code(500);
-    echo json_encode(['error' => 'Error de conexión con el servicio de IA']);
-    exit;
+    save_conversation($db, $sessionId, $historial, $ip, $userAgent);
+    api_error(500, 'Error de conexión con el servicio de IA');
 }
 
 $data = json_decode($response, true);
 
 if ($httpCode !== 200 || !isset($data['choices'][0]['message']['content'])) {
-    save_conversation($sessionId, $input['messages'], null, $ip, $userAgent);
-    http_response_code(500);
-    echo json_encode(['error' => 'Error al procesar la respuesta de IA']);
-    exit;
+    save_conversation($db, $sessionId, $historial, $ip, $userAgent);
+    api_error(500, 'Error al procesar la respuesta de IA');
 }
 
 $botReply = $data['choices'][0]['message']['content'];
 
 // Guardar conversación completa (incluyendo esta respuesta)
-$allMessages   = $input['messages'];
+$allMessages   = $historial;
 $allMessages[] = ['role' => 'assistant', 'content' => $botReply];
-save_conversation($sessionId, $allMessages, $ip, $userAgent);
+save_conversation($db, $sessionId, $allMessages, $ip, $userAgent);
 
 echo json_encode([
     'message' => $botReply,
     'usage'   => $data['usage'] ?? null
-]);
+], JSON_UNESCAPED_UNICODE);
 
 // ── Guardar/actualizar conversación en SQLite ──
-function save_conversation(string $sessionId, array $messages, ?string $ip, string $userAgent): void {
-    if (empty($sessionId)) return;
+function save_conversation(?PDO $db, string $sessionId, array $messages, string $ip, string $userAgent): void {
+    if (!$db || $sessionId === '') return;
 
     try {
-        $db = new PDO('sqlite:' . DB_PATH);
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-        $db->exec("CREATE TABLE IF NOT EXISTS conversations (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id   TEXT    NOT NULL UNIQUE,
-            started_at   TEXT    DEFAULT (datetime('now', 'localtime')),
-            last_active  TEXT    DEFAULT (datetime('now', 'localtime')),
-            messages     TEXT,
-            ip           TEXT,
-            user_agent   TEXT,
-            is_lead      INTEGER DEFAULT 0,
-            msg_count    INTEGER DEFAULT 0
-        )");
-
-        $msgJson   = json_encode($messages, JSON_UNESCAPED_UNICODE);
-        $msgCount  = count(array_filter($messages, fn($m) => ($m['role'] ?? '') !== 'system'));
+        $msgJson  = json_encode($messages, JSON_UNESCAPED_UNICODE);
+        $msgCount = count(array_filter($messages, fn($m) => ($m['role'] ?? '') !== 'system'));
 
         // Upsert: crear o actualizar según session_id
         $stmt = $db->prepare("

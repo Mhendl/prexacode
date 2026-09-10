@@ -9,6 +9,10 @@ $db = get_db();
 
 // Update estado/notas
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_ok($_POST['csrf'] ?? null)) {
+        header("Location: /admin/ticket.php?id={$id}");
+        exit;
+    }
     $nuevo_estado = $_POST['estado'] ?? '';
     $notas        = trim($_POST['notas'] ?? '');
     $estados_validos = ['nuevo','contactado','en_progreso','cerrado'];
@@ -83,6 +87,7 @@ $conv = json_decode($t['conversacion'] ?? '[]', true) ?: [];
 <div class="sidebar">
   <div class="sidebar-logo">PREXA<span>code</span></div>
   <a href="/admin/dashboard.php">🎫 Tickets</a>
+  <a href="/admin/conversations.php">💬 Conversaciones</a>
   <a href="/">🌐 Ver sitio</a>
   <div class="sidebar-bottom">
     <a href="/admin/?logout=1">🚪 Cerrar sesión</a>
@@ -129,6 +134,7 @@ $conv = json_decode($t['conversacion'] ?? '[]', true) ?: [];
     <div class="card">
       <h3>Gestión del ticket</h3>
       <form method="POST">
+        <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
         <label style="font-size:.85rem;color:#94a3b8;display:block;margin-bottom:8px">Estado</label>
         <select name="estado">
           <option value="nuevo"       <?= $t['estado']==='nuevo'?'selected':'' ?>>🔵 Nuevo</option>
