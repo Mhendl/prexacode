@@ -31,13 +31,18 @@ sembrar_si_hace_falta($db);
 
 // Tope de seguridad: si algo dispara el cron de mas, no publicamos una
 // avalancha de articulos ni quemamos la cuota de OpenAI.
-$maxSemana = setting_int($db, 'max_posts_semana', 3);
+//
+// Se cuenta desde el lunes de la semana en curso, NO en una ventana movil de
+// 7 dias. Con la ventana movil, los articulos del lunes y miercoles seguian
+// contando el miercoles siguiente y el cron se salteaba corridas: daba ~2,5
+// articulos por semana en vez de los 3 pedidos.
+$maxSemana  = setting_int($db, 'max_posts_semana', 3);
 $estaSemana = (int)$db->query("SELECT COUNT(*) FROM blog_posts
                                WHERE estado IN ('publicado','programado')
-                                 AND created_at >= datetime('now','localtime','-7 days')")->fetchColumn();
+                                 AND created_at >= date('now','localtime','-6 days','weekday 1')")->fetchColumn();
 
 if ($estaSemana >= $maxSemana) {
-    cli_log("Ya hay {$estaSemana} articulos en los ultimos 7 dias (tope {$maxSemana}). No genero.");
+    cli_log("Ya hay {$estaSemana} articulos esta semana (tope {$maxSemana}). No genero.");
     run_fin($db, $run, 'omitido', "tope semanal alcanzado: {$estaSemana}/{$maxSemana}");
     exit(0);
 }
